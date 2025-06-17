@@ -1,0 +1,12 @@
+streamlit
+streamlit-cropper
+openai
+Pillow
+requests
+python-dotenv
+pandas
+rembg
+onnxruntime
+google-auth
+fal-client
+google-cloud-aiplatform

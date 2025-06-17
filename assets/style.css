@@ -1,0 +1,166 @@
+/* Globale Schriftart und Hintergrund (Beispiel) */
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #fdfaf6; /* Sanfter Cremeton */
+}
+
+/* Hero Bereich - Angepasst für interne Nutzung */
+.hero-section {
+    background: #f8f9fa; /* Einfacher, heller Hintergrund */
+    border-radius: 1em;
+    padding: 2em 1.5em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    text-align: center;
+    margin-bottom: 2.5em;
+}
+
+.hero-section .icon {
+    font-size: 50px; /* Etwas kleiner */
+    line-height: 1;
+    margin-bottom: 0.2em;
+    color: #661a33; /* Weinrot */
+}
+
+.hero-section h1 {
+    font-family: 'Montserrat', sans-serif; /* Konsistente Schrift */
+    font-weight: 700;
+    font-size: 2.2em; /* Kompakter */
+    color: #333;
+    margin-bottom: 0.4em;
+}
+
+.hero-section .subtitle {
+    margin: 0 auto 1em auto;
+    max-width: 550px;
+    font-size: 1.1em;
+    color: #555;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+/* Step Header Styling - Etwas kompakter */
+.step-header {
+    background: #ffffff;
+    border-radius: 0.8em;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 1.5em 1em;
+    max-width: 900px;
+    margin: 0.5em auto 2em auto; /* Weniger vertikaler Margin */
+}
+
+.step-header h2 {
+    text-align: center;
+    color: #661a33;
+    font-size: 1.8em; /* Kompakter */
+    margin-bottom: 0;
+    font-weight: 600;
+}
+
+/* DALL·E Prompt Anzeige (nicht mehr bearbeitbar) */
+.prompt-display-box-readonly {
+    background: #f8f9fa;
+    padding: 1em 1.2em;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    margin-top: 1em;
+    margin-bottom: 1.5em; /* Mehr Platz zum nächsten Element */
+    font-size: 0.9em; /* Kompakter */
+}
+
+.prompt-display-box-readonly b {
+    color: #495057;
+    font-size: 1.05em;
+    display: block;
+    margin-bottom: 0.3em;
+}
+
+.prompt-display-box-readonly pre {
+    font-size: 0.95em;
+    margin-bottom:0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: #fff;
+    padding: 0.5em;
+    border-radius: 4px;
+}
+
+/* Buttons */
+.stButton>button {
+    border-radius: 0.5em !important;
+    padding: 0.5em 1em !important; /* Kompaktere Buttons */
+    font-weight: 500 !important; /* Etwas leichter */
+    border: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+.stButton>button:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+    transform: translateY(-1px);
+}
+
+.stButton[data-testid$="primary"] > button {
+    background-color: #661a33 !important; /* Weinrot für Primäraktion */
+    color: white !important;
+}
+
+/* Download Link Styling (aus Background Remover übernommen) */
+.download-link a {
+    display: inline-block;
+    padding: 0.4em 0.8em;
+    background-color: #f0f2f6;
+    color: #31333F;
+    border: 1px solid #d4d4d8;
+    border-radius: 0.3rem;
+    text-decoration: none;
+    font-size: 0.95em;
+    margin-top: 0.5em;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+.download-link a:hover {
+    background-color: #e6e8eb;
+    color: #090A0B;
+    text-decoration: none;
+}
+.stAlert {
+    margin-bottom: 1rem;
+}
+
+/* CSS für die Vorschau des freigestellten Bildes (Schachbrett) */
+.transparent-preview-bg {
+    background-image:
+        linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+    background-size: 20px 20px; /* Größe der Kästchen */
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    display: inline-block;
+    line-height: 0;
+}
+
+.transparent-preview-bg img {
+    display: block;
+}
+
+/* NEU: CSS für die Vorschau des Originalbildes */
+.original-preview-container {
+    background-color: #f0f2f6; /* Sehr helles, neutrales Grau (Streamlit's secondary_bg) */
+    padding: 5px;
+    border: 1px solid #d4d4d8; /* Passender, subtiler Rand */
+    display: inline-block;
+    line-height: 0;
+}
+
+.original-preview-container img {
+    display: block;
+}
+
+/* FINALER FIX: Erzwingt Zeilenumbruch in st.code Blöcken mit maximaler Spezifität */
+div[data-testid="stCodeBlock"] pre {
+    white-space: pre-wrap !important;
+    word-break: break-all !important; /* Ändere zu break-all für aggressiveren Umbruch */
+    overflow-x: hidden !important;   /* Verstecke den horizontalen Scrollbalken komplett */
+}

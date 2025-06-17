@@ -1,0 +1,10 @@
+# Ignoriere die virtuelle Umgebung
+.venv/
+
+# Ignoriere sensible Konfigurationsdateien
+.env
+.credentials/
+
+# Python-Cache-Dateien ignorieren
+__pycache__/
+*.pyc
