@@ -41,6 +41,7 @@ st.markdown(
     - **💡 Concept Generator**: Erzeugt Bilder aus textuellen Ideen und Stilen.
     - **🔬 Model Testbed**: Vergleicht die Ergebnisse verschiedener Bildmodelle.
     - **✍️ Prompt Generator**: Erstellt hochwertige Prompts für Bild-KIs.
+    - **✨ Image Upscaler**: Verbessert die Auflösung und Qualität von niedrigaufgelösten Bildern.
     """
 )
 
