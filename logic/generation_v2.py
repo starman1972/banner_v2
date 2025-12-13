@@ -3,6 +3,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from typing import Tuple
+from logic.openai_client import get_openai_client
 
 # === Bildkodierung (für den Upload an OpenAI API) ===
 def pil_to_bytes_with_mimetype(img: Image.Image, format: str = "PNG") -> Tuple[bytes, str]:
@@ -68,7 +69,8 @@ def generate_banner_with_gpt_image_1(
         image_bytes, image_mimetype = pil_to_bytes_with_mimetype(original_image_pil, format="PNG")
         dummy_filename = f"input_image.{image_mimetype.split('/')[1]}"
 
-        response = openai.images.edit(
+        client = get_openai_client()
+        response = client.images.edit(
             model="gpt-image-1",
             image=(dummy_filename, image_bytes, image_mimetype),
             prompt=instruction_prompt,

@@ -3,6 +3,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from typing import Tuple
+from logic.openai_client import get_openai_client
 
 def get_best_gpt_image_1_size(target_aspect_ratio: float) -> str:
     """
@@ -26,7 +27,8 @@ def generate_image_with_gpt_image_1_from_text(prompt: str, size: str, quality: s
     Gibt ein PIL Image Objekt zurück.
     """
     try:
-        response = openai.images.generate(
+        client = get_openai_client()
+        response = client.images.generate(
             model="gpt-image-1",
             prompt=prompt,
             n=1,

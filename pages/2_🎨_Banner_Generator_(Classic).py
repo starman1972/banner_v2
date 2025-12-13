@@ -26,8 +26,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     st.error("OpenAI API-Key fehlt. Bitte in `.env` setzen.")
     st.stop()
-import openai
-openai.api_key = OPENAI_API_KEY
 
 # -------------------------------------------------------- optionale Abhängigkeit
 try:

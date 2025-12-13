@@ -28,9 +28,8 @@ load_css()
 # --------------------------------------------------------------------
 # API-Key Initialisierung
 # --------------------------------------------------------------------
-import openai
-openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
     st.error("OPENAI_API_KEY nicht in .env gefunden.")
     st.stop()
 

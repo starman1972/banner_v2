@@ -5,7 +5,6 @@ import time
 import requests
 from io import BytesIO
 import sys
-import openai
 
 # --- Pfade und Imports ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -142,7 +141,7 @@ def _perform_generation():
 def testbed_page():
     # --- START DER KORREKTUR ---
     # API-Schlüssel sicher laden mit der neuen Hilfsfunktion
-    openai.api_key = get_secret("OPENAI_API_KEY")
+    openai_key = get_secret("OPENAI_API_KEY")
     
     # Für Bibliotheken, die os.environ nutzen
     stability_key = get_secret("STABILITY_API_KEY")
@@ -154,7 +153,7 @@ def testbed_page():
     # (für lokale Entwicklung) durch load_dotenv() in Image_Tools_Hub.py geladen werden.
 
     # Optionale Prüfung, ob die Keys vorhanden sind
-    if not all([openai.api_key, stability_key, fal_key]):
+    if not all([openai_key, stability_key, fal_key]):
         st.warning("Ein oder mehrere API-Schlüssel (OpenAI, Stability, Fal) wurden nicht gefunden. Einige Modelle werden nicht funktionieren.")
     # --- ENDE DER KORREKTUR ---
 

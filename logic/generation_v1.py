@@ -3,6 +3,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from typing import Tuple
+from logic.openai_client import get_openai_client
 
 # === V1: Bildanalyse und DALL-E Prompt Generierung (GPT-4o) ===
 def encode_image_to_base64(img: Image.Image) -> str:
@@ -16,7 +17,8 @@ def generate_banner_prompt_gpt4(img: Image.Image, system_prompt: str) -> str:
     base64_image = encode_image_to_base64(img)
     
     try:
-        response = openai.chat.completions.create(
+        client = get_openai_client()
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 { "role": "system", "content": system_prompt },
@@ -52,7 +54,8 @@ def get_best_dalle_size(target_aspect_ratio: float) -> str:
 def generate_dalle_image(prompt: str, size: str = "1792x1024", quality: str = "standard") -> str:
     """Generiert ein Bild mit DALL·E 3 und gibt die URL zurück."""
     try:
-        response = openai.images.generate(
+        client = get_openai_client()
+        response = client.images.generate(
             model="dall-e-3",
             prompt=prompt,
             n=1,

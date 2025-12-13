@@ -1,4 +1,5 @@
 import openai
+from logic.openai_client import get_openai_client
 
 # System-Prompt für GPT-4o, um einen Prompt basierend auf der Herkunft zu erstellen
 ORIGIN_PROMPT_ENHANCER_TEMPLATE: str = """
@@ -41,7 +42,8 @@ def build_origin_prompt(wine_type: str, origin: str, mood: str) -> str:
     user_input_for_enhancer = f"Wine Type/Grape: '{wine_type}'\nRegion of Origin: '{origin}'\nDesired Mood: '{mood}'"
 
     try:
-        response = openai.chat.completions.create(
+        client = get_openai_client()
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": ORIGIN_PROMPT_ENHANCER_TEMPLATE},

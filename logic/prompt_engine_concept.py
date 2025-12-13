@@ -1,4 +1,5 @@
 import openai
+from logic.openai_client import get_openai_client
 
 # NEU: Kategorisierte und kuratierte Liste von Kunststilen
 CATEGORIZED_ART_STYLES = {
@@ -101,7 +102,8 @@ def build_concept_prompt(subject: str, style: str) -> str:
     user_prompt_for_enhancer = f"Subject: '{subject}'\nArtistic Style: '{style}'"
 
     try:
-        response = openai.chat.completions.create(
+        client = get_openai_client()
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": CONCEPT_PROMPT_ENHANCER_TEMPLATE},
