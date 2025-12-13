@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import Optional
 
 import streamlit as st
-from dotenv import load_dotenv
 
 # --------------------------------------------------------------- Pfad-Setup
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +21,6 @@ from logic.generation_fal import (  # noqa: E402
 # --------------------------------------------------------------- Seite setup
 st.set_page_config(page_title="Fal Flux Dev-Test", page_icon=":gear:", layout="wide")
 load_css()
-load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
 DEFAULT_PROMPT = (
     "Elegant wide panoramic landscape banner, Tuscany hills, soft golden light, "

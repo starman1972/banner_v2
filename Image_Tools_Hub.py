@@ -4,7 +4,7 @@ import sys
 from dotenv import load_dotenv
 
 # .env-Datei laden (wichtig für die lokale Entwicklung)
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 # Pfad zum Projekt-Root hinzufügen, damit 'utils' gefunden wird
 current_dir = os.path.dirname(os.path.abspath(__file__))

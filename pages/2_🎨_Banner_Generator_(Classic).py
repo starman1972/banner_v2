@@ -4,7 +4,6 @@ from io import BytesIO
 import os
 import pandas as pd
 import requests
-from dotenv import load_dotenv
 import sys
 
 # -------------------------------------------------------------------- Pfade
@@ -23,7 +22,6 @@ st.set_page_config(page_title="Classic Banner Generator", page_icon="🎨", layo
 load_css()
 
 # ---------------------------------------------------------------- OpenAI-Key
-load_dotenv(os.path.join(project_root, ".env"))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     st.error("OpenAI API-Key fehlt. Bitte in `.env` setzen.")
