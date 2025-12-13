@@ -9,21 +9,15 @@ SKU_CSV_FILENAME = os.path.join(PROJECT_ROOT, "banner_bilder_v1.csv")
 ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 
 # --- NEUE, ROBUSTE FUNKTION ZUM LADEN VON SECRETS ---
-def get_secret(key: str) -> str | None:
-    """
-    Ruft einen Secret-Wert sicher ab.
-    Versucht zuerst, aus st.secrets zu lesen (für Streamlit Cloud).
-    Wenn das fehlschlägt (lokale Ausführung), wird auf os.getenv() zurückgegriffen.
-    """
-    try:
-        # Dieser Block wird in der Streamlit Cloud ausgeführt
-        if key in st.secrets:
-            return st.secrets[key]
-        else:
-            return None
-    except st.errors.StreamlitAPIException:
-        # Dieser Block wird bei lokaler Ausführung ausgeführt, da st.secrets nicht verfügbar ist
-        return os.getenv(key)
+def get_secret(key: str, *, required: bool = False) -> str | None:
+    if key in st.secrets:
+        return st.secrets[key]
+
+    value = os.getenv(key)
+    if required and (value is None or value.strip() == ""):
+        raise ValueError(f"Missing required secret: {key}")
+
+    return value
 
 # --- Bestehende Funktionen (unverändert) ---
 
