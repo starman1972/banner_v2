@@ -11,7 +11,17 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
-from utils import load_css
+from utils import load_css, get_secret
+
+
+def init_required_api_keys_in_environ() -> None:
+    for key in ["FAL_KEY", "STABILITY_API_KEY", "OPENAI_API_KEY"]:
+        value = get_secret(key)
+        if value is not None and value.strip() != "" and key not in os.environ:
+            os.environ[key] = value
+
+
+init_required_api_keys_in_environ()
 
 # --- Seitenkonfiguration ---
 st.set_page_config(

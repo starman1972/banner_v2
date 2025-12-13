@@ -10,10 +10,15 @@ ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 
 # --- NEUE, ROBUSTE FUNKTION ZUM LADEN VON SECRETS ---
 def get_secret(key: str, *, required: bool = False) -> str | None:
-    if key in st.secrets:
-        return st.secrets[key]
+    value = None
+    try:
+        if key in st.secrets:
+            value = st.secrets[key]
+    except st.errors.StreamlitSecretNotFoundError:
+        value = None
 
-    value = os.getenv(key)
+    if value is None:
+        value = os.getenv(key)
     if required and (value is None or value.strip() == ""):
         raise ValueError(f"Missing required secret: {key}")
 

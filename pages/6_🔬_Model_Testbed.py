@@ -146,12 +146,8 @@ def testbed_page():
     
     # Für Bibliotheken, die os.environ nutzen
     stability_key = get_secret("STABILITY_API_KEY")
-    if stability_key:
-        os.environ["STABILITY_API_KEY"] = stability_key
         
     fal_key = get_secret("FAL_KEY")
-    if fal_key:
-        os.environ["FAL_KEY"] = fal_key
 
     # Google Credentials werden von der `generation_google`-Logik selbst geholt.
     # Wir müssen hier nichts tun, außer sicherstellen, dass die .env-Variablen
