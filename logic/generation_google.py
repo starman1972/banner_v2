@@ -1,9 +1,9 @@
 from __future__ import annotations
 import os
+import json
 from io import BytesIO
 from typing import Tuple
 from PIL import Image
-import streamlit as st
 
 import vertexai
 from vertexai.vision_models import ImageGenerationModel
@@ -29,28 +29,29 @@ def generate_image_with_google_imagen(prompt: str, target_w: int, target_h: int)
     if not project_id:
         raise ValueError("GOOGLE_CLOUD_PROJECT wurde weder in st.secrets noch in der .env-Datei gefunden.")
 
-    credentials = None
-    try:
-        # Fall 1: Wir sind in der Streamlit Cloud und lesen die strukturierte Tabelle
-        if "google_credentials" in st.secrets:
-            # st.secrets.google_credentials ist bereits ein Dictionary-ähnliches Objekt
-            creds_info = st.secrets.google_credentials.to_dict()
-            credentials = service_account.Credentials.from_service_account_info(
-                creds_info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
-            )
-    except Exception:
-        # Fallback für lokale Entwicklung, wenn st.secrets nicht existiert
-        pass
+    value_json = get_secret("GOOGLE_CREDENTIALS_JSON")
+    value_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-    if not credentials:
-        # Fall 2: Wir sind lokal und laden aus dem Dateipfad, der in .env steht
-        cred_path = get_secret("GOOGLE_APPLICATION_CREDENTIALS")
-        if cred_path and os.path.exists(cred_path):
-             credentials = service_account.Credentials.from_service_account_file(
-                cred_path, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    credentials = None
+    if value_json and value_json.strip() != "":
+        creds_info = json.loads(value_json)
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+    elif value_path and value_path.strip() != "":
+        if os.path.exists(value_path):
+            credentials = service_account.Credentials.from_service_account_file(
+                value_path, scopes=["https://www.googleapis.com/auth/cloud-platform"]
             )
         else:
-            raise ValueError("Google Credentials konnten nicht geladen werden.")
+            raise ValueError(
+                f"GOOGLE_APPLICATION_CREDENTIALS zeigt auf keine existierende Datei: {value_path}"
+            )
+    else:
+        raise ValueError(
+            "Google Credentials konnten nicht geladen werden. Setze GOOGLE_CREDENTIALS_JSON (Service-Account JSON als String) "
+            "oder GOOGLE_APPLICATION_CREDENTIALS (Pfad zur JSON-Datei)."
+        )
 
     try:
         vertexai.init(project=project_id, location="us-central1", credentials=credentials)
