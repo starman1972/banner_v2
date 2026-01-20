@@ -98,7 +98,7 @@ def _on_parameter_change():
 
 # -------------------------------------------------------------- UI-Funktionen
 def _render_hero() -> None:
-    st.markdown( """<div class="hero-section" style="padding:1.5em 1em;margin-bottom:1.5em"> <h1 style="font-size:2em">🚀 Banner Generator (GPT-Image-1)</h1> <p class="subtitle" style="font-size:1em">Erzeuge KI-Banner auf Basis deines Produktbildes.</p> </div> """, unsafe_allow_html=True, )
+    st.markdown( """<div class="hero-section" style="padding:1.5em 1em;margin-bottom:1.5em"> <h1 style="font-size:2em">🚀 Banner Generator (GPT-Image-1.5)</h1> <p class="subtitle" style="font-size:1em">Erzeuge KI-Banner auf Basis deines Produktbildes.</p> </div> """, unsafe_allow_html=True, )
 
 def _render_step_header(step: int, title: str) -> None:
     st.markdown(f"<h2>{step}️⃣ Schritt {step}: {title}</h2>", unsafe_allow_html=True)
@@ -182,7 +182,7 @@ def _perform_banner_generation() -> None:
     _reset_ai_states()
     st.session_state.banner_gen_is_generating = True
     
-    st.session_state.banner_gen_status_message = f"🎨 GPT-Image-1 generiert Banner (Qualität: {st.session_state.banner_gen_quality_choice}) …"
+    st.session_state.banner_gen_status_message = f"🎨 GPT-Image-1.5 generiert Banner (Qualität: {st.session_state.banner_gen_quality_choice}) …"
     with st.spinner(st.session_state.banner_gen_status_message):
         try:
             _update_target_size_from_state()
@@ -257,7 +257,7 @@ def banner_generator_page() -> None:
     st.markdown("---")
     _render_step_header(3, "KI-Banner generieren")
 
-    if st.button("🚀 KI-Banner generieren (GPT-Image-1)", type="primary", use_container_width=True, disabled=st.session_state.banner_gen_is_generating):
+    if st.button("🚀 KI-Banner generieren (GPT-Image-1.5)", type="primary", use_container_width=True, disabled=st.session_state.banner_gen_is_generating):
         _perform_banner_generation()
         st.rerun()
 

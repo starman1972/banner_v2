@@ -1,6 +1,6 @@
 # Ignoriere die virtuelle Umgebung
 .venv/
-
+.venv_test/
 # Ignoriere sensible Konfigurationsdateien
 .env
 .credentials/
@@ -8,3 +8,4 @@
 # Python-Cache-Dateien ignorieren
 __pycache__/
 *.pyc
+.DS_Store

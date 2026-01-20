@@ -29,10 +29,10 @@ def pil_to_bytes_with_mimetype(img: Image.Image, format: str = "PNG") -> Tuple[b
     img.save(buffered, format=actual_format)
     return buffered.getvalue(), mimetype
 
-# === GPT-Image-1: Auswahl der besten nativen Ausgabegröße ===
+# === GPT-Image-1.5: Auswahl der besten nativen Ausgabegröße ===
 def get_best_dalle_size(target_aspect_ratio: float) -> str:
     """
-    Wählt die am besten passende gpt-image-1 Ausgabegröße.
+    Wählt die am besten passende gpt-image-1.5 Ausgabegröße.
     Unterstützt: "1024x1024", "1536x1024" (landscape), "1024x1536" (portrait).
     """
     gpt_image_1_sizes = {
@@ -46,7 +46,7 @@ def get_best_dalle_size(target_aspect_ratio: float) -> str:
     )
     return gpt_image_1_sizes[closest_size_key][1]
 
-# === GPT-Image-1: Generierung des Bildes basierend auf einem Referenzbild ===
+# === GPT-Image-1.5: Generierung des Bildes basierend auf einem Referenzbild ===
 def generate_banner_with_gpt_image_1(
     original_image_pil: Image.Image,
     instruction_prompt: str,
@@ -54,14 +54,14 @@ def generate_banner_with_gpt_image_1(
     quality: str = "auto" # 'low', 'medium', 'high', oder 'auto'
 ) -> Image.Image:
     """
-    Generiert ein Banner mit gpt-image-1, inspiriert vom original_image_pil.
-    target_size_str: Eine der von gpt-image-1 unterstützten Größen-Strings.
-    quality: Die gewünschte Qualität des generierten Bildes für gpt-image-1.
+    Generiert ein Banner mit gpt-image-1.5, inspiriert vom original_image_pil.
+    target_size_str: Eine der von gpt-image-1.5 unterstützten Größen-Strings.
+    quality: Die gewünschte Qualität des generierten Bildes für gpt-image-1.5.
     """
     if not instruction_prompt:
-        raise ValueError("Instruction prompt cannot be empty for gpt-image-1.")
+        raise ValueError("Instruction prompt cannot be empty for gpt-image-1.5.")
     if not original_image_pil:
-        raise ValueError("Original image (PIL) must be provided for gpt-image-1.")
+        raise ValueError("Original image (PIL) must be provided for gpt-image-1.5.")
     if quality not in ["low", "medium", "high", "auto"]:
         raise ValueError(f"Invalid quality setting: {quality}. Must be one of 'low', 'medium', 'high', 'auto'.")
 
@@ -71,7 +71,7 @@ def generate_banner_with_gpt_image_1(
 
         client = get_openai_client()
         response = client.images.edit(
-            model="gpt-image-1",
+            model="gpt-image-1.5",
             image=(dummy_filename, image_bytes, image_mimetype),
             prompt=instruction_prompt,
             n=1,
@@ -85,43 +85,43 @@ def generate_banner_with_gpt_image_1(
             generated_image_pil = Image.open(BytesIO(image_data_bytes))
             return generated_image_pil.convert("RGB")
         else:
-            raise ValueError("No image data received from gpt-image-1 API response, or data is empty.")
+            raise ValueError("No image data received from gpt-image-1.5 API response, or data is empty.")
 
     except openai.BadRequestError as e:
         error_body = e.body
-        error_message = f"gpt-image-1 API Bad Request: {str(e)}."
+        error_message = f"gpt-image-1.5 API Bad Request: {str(e)}."
         detail_msg = ""
 
         if error_body:
             if isinstance(error_body, dict) and "error" in error_body and isinstance(error_body["error"], dict) and "message" in error_body["error"]:
                  detail_msg = error_body["error"]["message"]
-                 error_message = f"gpt-image-1 API Bad Request: {detail_msg}"
+                 error_message = f"gpt-image-1.5 API Bad Request: {detail_msg}"
             elif "content_policy_violation" in str(error_body).lower():
-                 error_message = (f"gpt-image-1 rejected the request due to content policy. "
+                 error_message = (f"gpt-image-1.5 rejected the request due to content policy. "
                                  f"Prompt: '{instruction_prompt[:100]}...'. Please revise.")
             elif "billing" in str(error_body).lower():
-                 error_message = "gpt-image-1 image generation failed. Please check your OpenAI account billing status."
+                 error_message = "gpt-image-1.5 image generation failed. Please check your OpenAI account billing status."
             elif "unsupported mimetype" in str(error_body).lower():
-                error_message = f"gpt-image-1 API Error: Unsupported image file type. Details: {str(error_body)}"
+                error_message = f"gpt-image-1.5 API Error: Unsupported image file type. Details: {str(error_body)}"
 
         print(f"Original BadRequestError: {e}")
         print(f"Parsed error message for UI: {error_message}")
 
         if "content_policy_violation" in error_message.lower():
-            raise ValueError(f"DALL·E rejected the prompt due to content policy: '{instruction_prompt[:100]}...'. Please revise your prompt.") from e
+            raise ValueError(f"GPT-Image-1.5 rejected the prompt due to content policy: '{instruction_prompt[:100]}...'. Please revise your prompt.") from e
         elif "billing" in error_message.lower():
-             raise ValueError("DALL·E image generation failed. Please check your OpenAI account billing status.") from e
+             raise ValueError("GPT-Image-1.5 image generation failed. Please check your OpenAI account billing status.") from e
         elif "unsupported mimetype" in error_message.lower() or "unsupported file format" in error_message.lower() :
             raise ValueError("The uploaded image format is not supported by the AI. Please use PNG, JPEG, or WEBP.") from e
 
         raise ValueError(error_message) from e
 
     except openai.APIError as e:
-        error_message = f"OpenAI gpt-image-1 API error: {e}"
+        error_message = f"OpenAI gpt-image-1.5 API error: {e}"
         if hasattr(e, 'message') and e.message: # type: ignore
             error_message += f" - Details: {e.message}" # type: ignore
         print(error_message)
         raise
     except Exception as e:
-        print(f"An unexpected error occurred during gpt-image-1 image generation: {e}")
+        print(f"An unexpected error occurred during gpt-image-1.5 image generation: {e}")
         raise

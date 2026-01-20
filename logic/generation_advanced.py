@@ -29,7 +29,7 @@ def generate_image_with_gpt_image_1_from_text(prompt: str, size: str, quality: s
     try:
         client = get_openai_client()
         response = client.images.generate(
-            model="gpt-image-1",
+            model="gpt-image-1.5",
             prompt=prompt,
             n=1,
             size=size, # type: ignore
