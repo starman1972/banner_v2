@@ -22,6 +22,14 @@ Avoid natural landscapes or sceneries unless they are explicitly part of the ori
 Output only the generated image.
 """
 
+TEXT_POSITION_MAP: dict[str, str] = {
+    "zentral": "centrally",
+    "oben": "near the top",
+    "unten": "near the bottom",
+    "links": "toward the left side",
+    "rechts": "toward the right side",
+}
+
 def build_gpt_image_1_banner_prompt() -> str:
     """Gibt den vordefinierten Prompt-Template für die gpt-image-1 Bannergenerierung ohne Text zurück."""
     return GPT_IMAGE_1_BANNER_PROMPT_TEMPLATE
@@ -41,5 +49,10 @@ def build_gpt_image_1_banner_with_text_prompt(user_text: str, text_position: str
         # Wir gehen davon aus, dass der Aufrufer dies sicherstellt.
         pass
 
-    prompt = GPT_IMAGE_1_BANNER_WITH_TEXT_PROMPT_TEMPLATE.replace("{user_text}", user_text).replace("{text_position}", text_position)
+    prompt_text_position = TEXT_POSITION_MAP.get(text_position.strip().lower(), "in a balanced position")
+    prompt = (
+        GPT_IMAGE_1_BANNER_WITH_TEXT_PROMPT_TEMPLATE
+        .replace("{user_text}", user_text)
+        .replace("{text_position}", prompt_text_position)
+    )
     return prompt
