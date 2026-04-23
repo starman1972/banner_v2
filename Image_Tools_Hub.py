@@ -44,7 +44,7 @@ st.markdown(
     **Bitte wählen Sie ein Werkzeug aus der Seitenleiste links, um zu beginnen.**
 
     Verfügbare Tools umfassen unter anderem:
-    - **🚀 Banner Generator (Direct)**: Erzeugt Banner direkt aus einem Produktbild mit `gpt-image-1`.
+    - **🚀 Banner Generator (Direct)**: Erzeugt Banner direkt aus einem Produktbild mit dem OpenAI Image-Tool-Flow und wählbarer Qualitätsstufe.
     - **🎨 Banner Generator (Classic)**: Nutzt einen 2-Stufen-Prozess (GPT-4o Vision → DALL·E 3).
     - **✏️ Background Remover**: Entfernt automatisch den Hintergrund von Bildern.
     - **✂️ Image Optimizer**: Interaktives Zuschneiden und Optimieren von Bildern.
