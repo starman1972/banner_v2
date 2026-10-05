@@ -11,12 +11,16 @@ from logic.openai_client import get_openai_client
 SUPPORTED_OUTPUT_FORMATS = {"png", "jpeg", "webp"}
 VALID_QUALITY_OPTIONS = {"auto", "low", "medium", "high"}
 VALID_MODERATION_OPTIONS = {"auto", "low"}
+DEFAULT_GENERATION_QUALITY = "medium"
+DEFAULT_OUTPUT_FORMAT = "jpeg"
+DEFAULT_OUTPUT_COMPRESSION = 50
+IMAGE_MODEL_LABEL = "GPT Image 2.5 Flare"
 
 RESPONSES_CONTROLLER_MODEL_CANDIDATES = [
     "gpt-4.1-mini",
     "gpt-4.1",
 ]
-PREFERRED_IMAGE_TOOL_MODEL = "gpt-image-2"
+PREFERRED_IMAGE_TOOL_MODEL = "gpt-image-2.5-flare"
 
 MIN_EDGE = 16
 MULTIPLE_OF = 16
@@ -148,7 +152,7 @@ def _find_best_valid_size_for_ratio(width: int, height: int) -> Tuple[int, int]:
 
     if best_candidate is None:
         raise ValueError(
-            f"Could not derive a valid gpt-image-2 size for {width}x{height}."
+            f"Could not derive a valid {PREFERRED_IMAGE_TOOL_MODEL} size for {width}x{height}."
         )
 
     return best_candidate
@@ -221,8 +225,10 @@ def _get_request_id_from_error(exc: Exception) -> Optional[str]:
 
 def _get_bad_request_details(exc: openai.BadRequestError) -> tuple[Optional[str], Optional[str], str]:
     error_body = exc.body
-    if isinstance(error_body, dict) and isinstance(error_body.get("error"), dict):
-        error = error_body["error"]
+    if isinstance(error_body, dict):
+        error = error_body.get("error", error_body)
+        if not isinstance(error, dict):
+            return None, None, str(exc)
         return error.get("code"), error.get("param"), str(error.get("message") or "")
     return None, None, str(exc)
 
@@ -296,42 +302,9 @@ def _responses_create_image_with_fallback(
                 )
                 continue
 
-            tool_model_invalid = (
-                "gpt-image-2" in error_message_lower
-                and "model" in current_tool_payload
-                and ("tools[0].model" in error_param_lower or error_param_lower == "model")
-            )
-            if tool_model_invalid:
-                current_tool_payload.pop("model", None)
-                print("Retrying image generation tool without explicit image model override.")
-                continue
-
-            if error_code == "unknown_parameter" and "tools[0].action" in error_param_lower:
-                current_tool_payload.pop("action", None)
-                print("Retrying image generation tool without explicit action override.")
-                continue
-
-            if error_code == "unknown_parameter" and "tools[0].moderation" in error_param_lower:
-                current_tool_payload.pop("moderation", None)
-                print("Retrying image generation tool without moderation override.")
-                continue
-
-            if error_code == "unknown_parameter" and "tools[0].output_compression" in error_param_lower:
-                current_tool_payload.pop("output_compression", None)
-                print("Retrying image generation tool without output compression override.")
-                continue
-
-            if error_code == "unknown_parameter" and "tools[0].output_format" in error_param_lower:
-                current_tool_payload.pop("output_format", None)
-                current_tool_payload.pop("output_compression", None)
-                print("Retrying image generation tool without output format override.")
-                continue
-
-            if error_code == "unknown_parameter" and "quality" in error_param_lower:
-                raise ValueError(
-                    "The current Responses image-generation tool rejected `quality`. "
-                    "This app keeps quality selection because it directly affects cost."
-                ) from exc
+            # Never silently drop the selected model or its cost/output controls.
+            if error_code == "unknown_parameter":
+                raise
 
             size_invalid = (
                 "size" in error_param_lower
@@ -351,18 +324,20 @@ def generate_banner_with_gpt_image_2(
     original_image_pil: Image.Image,
     instruction_prompt: str,
     size_plan: GenerationSizePlan,
-    quality: str = "auto",
+    quality: str = DEFAULT_GENERATION_QUALITY,
     moderation: str = "auto",
-    output_format: str = "jpeg",
+    output_format: str = DEFAULT_OUTPUT_FORMAT,
     output_compression: Optional[int] = None,
 ) -> Image.Image:
     """
-    Generate a banner-like image with the Responses API image_generation tool.
+    Generate with GPT Image 2.5 Flare via the Responses image_generation tool.
+
+    The function name is retained for compatibility with existing callers.
     """
-    if not instruction_prompt:
-        raise ValueError("Instruction prompt cannot be empty for gpt-image-2.")
+    if not instruction_prompt or not instruction_prompt.strip():
+        raise ValueError(f"Instruction prompt cannot be empty for {PREFERRED_IMAGE_TOOL_MODEL}.")
     if not original_image_pil:
-        raise ValueError("Original image (PIL) must be provided for gpt-image-2.")
+        raise ValueError(f"Original image (PIL) must be provided for {PREFERRED_IMAGE_TOOL_MODEL}.")
     if quality not in VALID_QUALITY_OPTIONS:
         raise ValueError(
             f"Invalid quality setting: {quality}. Must be one of {sorted(VALID_QUALITY_OPTIONS)}."
@@ -382,6 +357,8 @@ def generate_banner_with_gpt_image_2(
             )
         if not 0 <= output_compression <= 100:
             raise ValueError("Output compression must be between 0 and 100.")
+    elif output_format in {"jpeg", "webp"}:
+        output_compression = DEFAULT_OUTPUT_COMPRESSION
 
     try:
         client = get_openai_client()
@@ -424,28 +401,24 @@ def generate_banner_with_gpt_image_2(
 
     except openai.BadRequestError as exc:
         request_id = _get_request_id_from_error(exc)
-        error_body = exc.body
-        error_message = f"gpt-image-2 API bad request: {exc}"
-
-        if error_body:
-            if (
-                isinstance(error_body, dict)
-                and isinstance(error_body.get("error"), dict)
-                and error_body["error"].get("message")
-            ):
-                error_message = f"gpt-image-2 API bad request: {error_body['error']['message']}"
-            elif "content_policy_violation" in str(error_body).lower():
-                error_message = (
-                    "gpt-image-2 rejected the request due to content policy. "
-                    "Please revise the prompt."
-                )
-            elif "billing" in str(error_body).lower():
-                error_message = (
-                    "gpt-image-2 image generation failed. Please check your OpenAI billing status."
-                )
+        error_code, error_param, detail = _get_bad_request_details(exc)
+        error_message = f"{PREFERRED_IMAGE_TOOL_MODEL} API bad request: {detail or exc}"
+        if error_code == "content_policy_violation":
+            error_message = (
+                f"{PREFERRED_IMAGE_TOOL_MODEL} rejected the request due to content policy. "
+                "Please revise the prompt."
+            )
+        elif "billing" in str(exc.body).lower():
+            error_message = (
+                f"{PREFERRED_IMAGE_TOOL_MODEL} image generation failed. "
+                "Please check your OpenAI billing status."
+            )
+        if "model" in (error_param or "").lower():
+            error_message += " No alternate image model was used."
 
         if request_id:
             print(f"OpenAI request id: {request_id}")
+            error_message = f"{error_message} (request_id={request_id})"
         print(f"Original BadRequestError: {exc}")
         print(f"Parsed error message for UI: {error_message}")
 
@@ -453,12 +426,12 @@ def generate_banner_with_gpt_image_2(
 
     except openai.APIError as exc:
         request_id = _get_request_id_from_error(exc)
-        error_message = f"OpenAI gpt-image-2 API error: {exc}"
+        error_message = f"OpenAI {PREFERRED_IMAGE_TOOL_MODEL} API error: {exc}"
         if request_id:
             error_message = f"{error_message} (request_id={request_id})"
         print(error_message)
         raise ValueError(error_message) from exc
 
     except Exception as exc:
-        print(f"An unexpected error occurred during gpt-image-2 image generation: {exc}")
+        print(f"An unexpected error occurred during {PREFERRED_IMAGE_TOOL_MODEL} image generation: {exc}")
         raise

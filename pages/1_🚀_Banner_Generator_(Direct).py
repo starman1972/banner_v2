@@ -1,6 +1,8 @@
 import os
 import sys
+from hashlib import sha256
 from io import BytesIO
+from time import perf_counter
 
 import pandas as pd
 import requests
@@ -15,24 +17,29 @@ if project_root not in sys.path:
 
 # -------------------------------------------------------------------- Imports
 from logic.generation_v2 import (
+    DEFAULT_GENERATION_QUALITY,
+    DEFAULT_OUTPUT_COMPRESSION,
+    DEFAULT_OUTPUT_FORMAT,
     GenerationSizePlan,
+    IMAGE_MODEL_LABEL,
     generate_banner_with_gpt_image_2,
     get_generation_size_for_target,
 )
 from logic.prompt_engine_v2 import (
-    build_gpt_image_1_banner_prompt,
-    build_gpt_image_1_banner_with_text_prompt,
+    PROMPT_MODE_DESCRIPTIONS,
+    PROMPT_MODE_LABELS,
+    build_banner_prompt,
 )
-from utils import SKU_CSV_FILENAME, load_css, load_sku_data
+from utils import SKU_CSV_FILENAME, get_secret, load_css, load_sku_data
 
 # ---------------------------------------------------------------- Streamlit
 st.set_page_config(page_title="Banner Generator", page_icon="🚀", layout="wide")
 load_css()
 
 # ---------------------------------------------------------------- OpenAI-Key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    st.error("OpenAI API key missing. Please set OPENAI_API_KEY in your environment.")
+    st.error("OpenAI API-Key fehlt. Bitte OPENAI_API_KEY in der Umgebung oder den Streamlit-Secrets setzen.")
     st.stop()
 
 # -------------------------------------------------------- Optional dependency
@@ -44,10 +51,6 @@ except ImportError:
     CROPPER_AVAILABLE = False
 
 # ---------------------------------------------------------------- Constants
-DEFAULT_GENERATION_QUALITY = "medium"
-DEFAULT_OUTPUT_FORMAT = "jpeg"
-DEFAULT_OUTPUT_COMPRESSION = 10
-
 RATIO_OPTIONS_MAP = {
     "Wide Banner (4.54:1)": (3000, 660),
     "Showcase (3:2)": (1500, 1000),
@@ -59,7 +62,6 @@ DEFAULT_RATIO_KEY = "Wide Banner (4.54:1)"
 CUSTOM_DEFAULT_WIDTH = 3840
 CUSTOM_DEFAULT_HEIGHT = 2160
 PREVIEW_IMAGE_WIDTH = 220
-CROPPER_ASPECT_DEFINITION_MAX_WIDTH = 700
 
 
 def _get_output_metadata(output_format: str) -> tuple[str, str, str]:
@@ -81,12 +83,14 @@ def initialize_session_state() -> None:
     defaults = {
         "banner_gen_image_input": None,
         "banner_gen_image_input_name": None,
+        "banner_gen_image_input_digest": None,
         "banner_gen_img_from": None,
         "uploader_instance_key": 0,
         "banner_gen_ratio_choice": DEFAULT_RATIO_KEY,
         "banner_gen_custom_width": CUSTOM_DEFAULT_WIDTH,
         "banner_gen_custom_height": CUSTOM_DEFAULT_HEIGHT,
         "banner_gen_quality_choice": DEFAULT_GENERATION_QUALITY,
+        "banner_gen_prompt_mode": "classic",
         "banner_gen_output_format_choice": DEFAULT_OUTPUT_FORMAT,
         "banner_gen_output_compression": DEFAULT_OUTPUT_COMPRESSION,
         "banner_gen_include_text": False,
@@ -96,6 +100,7 @@ def initialize_session_state() -> None:
         "banner_gen_ai_banner_img": None,
         "banner_gen_status_message": "",
         "banner_gen_is_generating": False,
+        "banner_gen_cropper_version": 0,
         "temp_sku_input": "",
         "banner_gen_current_sku_data": None,
     }
@@ -127,6 +132,7 @@ def _reset_ai_states() -> None:
     st.session_state.banner_gen_ai_banner_img = None
     st.session_state.banner_gen_instruction_prompt_for_gpt_image_1 = None
     st.session_state.banner_gen_status_message = ""
+    st.session_state.banner_gen_cropper_version += 1
 
 
 def _on_parameter_change() -> None:
@@ -137,11 +143,11 @@ def _on_parameter_change() -> None:
 # -------------------------------------------------------------- UI helpers
 def _render_hero() -> None:
     st.markdown(
-        """
+        f"""
         <div class="hero-section" style="padding:1.5em 1em;margin-bottom:1.5em">
-          <h1 style="font-size:2em">🚀 Banner Generator (GPT Image 2)</h1>
+          <h1 style="font-size:2em">🚀 Banner Generator ({IMAGE_MODEL_LABEL})</h1>
           <p class="subtitle" style="font-size:1em">
-            Generate AI banners from your product image with flexible gpt-image-2 sizing.
+            Generate AI banners from your product image with {IMAGE_MODEL_LABEL} and flexible sizing.
           </p>
         </div>
         """,
@@ -163,17 +169,21 @@ def _handle_upload() -> None:
     if not uploaded_file:
         return
 
+    image_bytes = uploaded_file.getvalue()
+    image_digest = sha256(image_bytes).hexdigest()
     if (
         st.session_state.get("banner_gen_image_input_name") == uploaded_file.name
+        and st.session_state.get("banner_gen_image_input_digest") == image_digest
         and st.session_state.get("banner_gen_img_from") == "upload"
     ):
         return
 
     try:
-        image = Image.open(uploaded_file)
+        image = Image.open(BytesIO(image_bytes))
         image = ImageOps.exif_transpose(image).convert("RGB")
         st.session_state.banner_gen_image_input = image
         st.session_state.banner_gen_image_input_name = uploaded_file.name
+        st.session_state.banner_gen_image_input_digest = image_digest
         st.session_state.banner_gen_img_from = "upload"
         st.session_state.banner_gen_current_sku_data = None
         st.session_state.temp_sku_input = ""
@@ -212,6 +222,7 @@ def _handle_sku_lookup(df_skus: pd.DataFrame) -> None:
         image = ImageOps.exif_transpose(image).convert("RGB")
         st.session_state.banner_gen_image_input = image
         st.session_state.banner_gen_image_input_name = f"SKU:{sku_value}"
+        st.session_state.banner_gen_image_input_digest = None
         st.session_state.banner_gen_img_from = "sku"
         st.session_state.banner_gen_current_sku_data = match.iloc[0].to_dict()
         st.session_state.uploader_instance_key += 1
@@ -224,7 +235,7 @@ def _handle_sku_lookup(df_skus: pd.DataFrame) -> None:
 def _render_size_plan(plan: GenerationSizePlan) -> None:
     st.caption(
         f"Finale Zielgroesse: {plan.requested_size_str} px | "
-        f"OpenAI-Generationsgroesse: {plan.generation_size_str} px"
+        f"Angefragte Generationsgroesse: {plan.generation_size_str} px"
     )
 
     if plan.requires_crop:
@@ -239,6 +250,16 @@ def _render_size_plan(plan: GenerationSizePlan) -> None:
 
 
 def _select_options() -> None:
+    st.radio(
+        "Prompt-Stil:",
+        list(PROMPT_MODE_LABELS),
+        format_func=PROMPT_MODE_LABELS.__getitem__,
+        key="banner_gen_prompt_mode",
+        on_change=_on_parameter_change,
+        horizontal=True,
+    )
+    st.caption(PROMPT_MODE_DESCRIPTIONS[st.session_state.banner_gen_prompt_mode])
+
     ratio_option_keys = list(RATIO_OPTIONS_MAP.keys())
     st.radio(
         "Seitenverhaeltnis:",
@@ -254,7 +275,6 @@ def _select_options() -> None:
                 "Breite (px)",
                 min_value=1,
                 key="banner_gen_custom_width",
-                value=st.session_state.banner_gen_custom_width,
                 on_change=_on_parameter_change,
             )
         with col_height:
@@ -262,7 +282,6 @@ def _select_options() -> None:
                 "Hoehe (px)",
                 min_value=1,
                 key="banner_gen_custom_height",
-                value=st.session_state.banner_gen_custom_height,
                 on_change=_on_parameter_change,
             )
 
@@ -323,6 +342,8 @@ def _select_options() -> None:
             on_change=_on_parameter_change,
             horizontal=True,
         )
+        if not st.session_state.banner_gen_user_text.strip():
+            st.warning("Bitte Banner-Text eingeben oder die Textoption deaktivieren.")
 
 
 def _perform_banner_generation() -> None:
@@ -331,34 +352,37 @@ def _perform_banner_generation() -> None:
 
     st.session_state.banner_gen_is_generating = True
     _reset_ai_states()
-    size_plan = _get_current_generation_plan()
-    output_format = st.session_state.banner_gen_output_format_choice
-    compression = (
-        st.session_state.banner_gen_output_compression
-        if output_format in {"jpeg", "webp"}
-        else None
-    )
-
-    st.session_state.banner_gen_status_message = (
-        "🎨 GPT Image 2 generiert Banner "
-        f"({size_plan.generation_size_str}, Qualitaet: {st.session_state.banner_gen_quality_choice}) ..."
-    )
-
-    with st.spinner(st.session_state.banner_gen_status_message):
-        try:
-            _update_target_size_from_state()
-            user_text = st.session_state.banner_gen_user_text.strip()
-            use_text_prompt = st.session_state.banner_gen_include_text and user_text
-            prompt = (
-                build_gpt_image_1_banner_with_text_prompt(
-                    user_text,
-                    st.session_state.banner_gen_text_position,
-                )
-                if use_text_prompt
-                else build_gpt_image_1_banner_prompt()
-            )
-            st.session_state.banner_gen_instruction_prompt_for_gpt_image_1 = prompt
-
+    try:
+        _update_target_size_from_state()
+        size_plan = _get_current_generation_plan()
+        user_text = (
+            st.session_state.banner_gen_user_text.strip()
+            if st.session_state.banner_gen_include_text
+            else ""
+        )
+        if st.session_state.banner_gen_include_text and not user_text:
+            raise ValueError("Bitte Banner-Text eingeben oder die Textoption deaktivieren.")
+        prompt = build_banner_prompt(
+            mode=st.session_state.banner_gen_prompt_mode,
+            target_size=st.session_state.banner_gen_target_size,
+            generation_size=(size_plan.generation_width, size_plan.generation_height),
+            user_text=user_text,
+            text_position=st.session_state.banner_gen_text_position,
+        )
+        st.session_state.banner_gen_instruction_prompt_for_gpt_image_1 = prompt
+        output_format = st.session_state.banner_gen_output_format_choice
+        compression = (
+            st.session_state.banner_gen_output_compression
+            if output_format in {"jpeg", "webp"}
+            else None
+        )
+        mode_label = PROMPT_MODE_LABELS[st.session_state.banner_gen_prompt_mode]
+        st.session_state.banner_gen_status_message = (
+            f"🎨 {IMAGE_MODEL_LABEL} generiert Banner ({mode_label}, {size_plan.generation_size_str}, "
+            f"Qualitaet: {st.session_state.banner_gen_quality_choice}) ..."
+        )
+        with st.spinner(st.session_state.banner_gen_status_message):
+            started_at = perf_counter()
             image_result = generate_banner_with_gpt_image_2(
                 original_image_pil=st.session_state.banner_gen_image_input,
                 instruction_prompt=prompt,
@@ -368,29 +392,43 @@ def _perform_banner_generation() -> None:
                 output_compression=compression,
             )
             st.session_state.banner_gen_ai_banner_img = image_result
-            st.session_state.banner_gen_status_message = "✅ Banner erfolgreich generiert!"
-        except Exception as exc:
-            st.session_state.banner_gen_status_message = f"Fehler bei Bannergenerierung: {exc}"
-        finally:
-            st.session_state.banner_gen_is_generating = False
+            elapsed_seconds = perf_counter() - started_at
+            st.session_state.banner_gen_status_message = (
+                f"✅ Banner erfolgreich generiert! {IMAGE_MODEL_LABEL} | "
+                f"Generierungsdauer: {elapsed_seconds:.1f} s"
+            )
+    except Exception as exc:
+        st.session_state.banner_gen_status_message = f"Fehler bei Bannergenerierung: {exc}"
+    finally:
+        st.session_state.banner_gen_is_generating = False
+
+
+def _initial_crop_box(img: Image.Image, aspect_ratio: tuple[int, int]) -> dict:
+    # The cropper calls this on its preview; keep the exact ratio and maximum area.
+    width = min(img.width, img.height * aspect_ratio[0] / aspect_ratio[1])
+    height = width * aspect_ratio[1] / aspect_ratio[0]
+    return {
+        "left": (img.width - width) / 2,
+        "top": (img.height - height) / 2,
+        "width": width,
+        "height": height,
+    }
 
 
 def _build_download_image(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     if CROPPER_AVAILABLE:
-        aspect_def_w, aspect_def_h = target_w, target_h
-        if aspect_def_w > CROPPER_ASPECT_DEFINITION_MAX_WIDTH:
-            scale = CROPPER_ASPECT_DEFINITION_MAX_WIDTH / aspect_def_w
-            aspect_def_w = int(aspect_def_w * scale)
-            aspect_def_h = max(1, int(aspect_def_h * scale))
-
         cropped = st_cropper(
             img,
             realtime_update=True,
             box_color="#8c133a",
-            aspect_ratio=(aspect_def_w, aspect_def_h),
-            key="banner_gen_cropper_widget",
+            aspect_ratio=(target_w, target_h),
+            box_algorithm=_initial_crop_box,
+            key=f"banner_gen_cropper_{st.session_state.banner_gen_cropper_version}",
         )
-        return cropped.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        if cropped.width == 0 or cropped.height == 0:
+            st.warning("Der gewählte Ausschnitt ist zu klein. Bitte vergrößern.")
+            st.stop()
+        return ImageOps.fit(cropped, (target_w, target_h), method=Image.Resampling.LANCZOS)
 
     st.warning("`streamlit-cropper` ist nicht installiert. Verwende automatischen Zuschnitt.")
     return ImageOps.fit(img, (target_w, target_h), method=Image.Resampling.LANCZOS)
@@ -402,6 +440,7 @@ def _crop_and_download() -> None:
         return
 
     target_w, target_h = st.session_state.banner_gen_target_size
+    st.caption(f"Tatsächlich erzeugte Bildgröße: {image_to_crop.width}x{image_to_crop.height} px")
     final_image = _build_download_image(image_to_crop, target_w, target_h)
     output_format = st.session_state.banner_gen_output_format_choice
     compression = st.session_state.banner_gen_output_compression
@@ -455,14 +494,15 @@ def banner_generator_page() -> None:
     )
     st.markdown("---")
 
-    _render_step_header(2, "Format, Ausgabe & Textoptionen")
+    _render_step_header(2, "Prompt-Stil, Format & Textoptionen")
     _select_options()
 
     target_w, target_h = st.session_state.banner_gen_target_size
     generation_plan = _get_current_generation_plan()
     st.caption(
         f"Finales Banner: {target_w}x{target_h}px | "
-        f"OpenAI rendert: {generation_plan.generation_size_str}px | "
+        f"Angefragt: {generation_plan.generation_size_str}px | "
+        f"Prompt: {PROMPT_MODE_LABELS[st.session_state.banner_gen_prompt_mode]} | "
         f"Qualitaet: {st.session_state.banner_gen_quality_choice} | "
         f"Downloadformat: {st.session_state.banner_gen_output_format_choice}"
     )
@@ -471,10 +511,13 @@ def banner_generator_page() -> None:
     _render_step_header(3, "KI-Banner generieren")
 
     if st.button(
-        "🚀 KI-Banner generieren (GPT Image 2)",
+        f"🚀 KI-Banner generieren ({IMAGE_MODEL_LABEL})",
         type="primary",
         use_container_width=True,
-        disabled=st.session_state.banner_gen_is_generating,
+        disabled=st.session_state.banner_gen_is_generating or (
+            st.session_state.banner_gen_include_text
+            and not st.session_state.banner_gen_user_text.strip()
+        ),
     ):
         _perform_banner_generation()
         st.rerun()
